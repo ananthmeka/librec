@@ -150,9 +150,11 @@ public class LibRec {
 		}
 
 		// collect results
-		String filename = (configFiles.size() > 1 ? "multiAlgorithms" : algorithm) + "@" + Dates.now() + ".txt";
-		String results = tempDirPath + filename;
+		// String filename = (configFiles.size() > 1 ? "multiAlgorithms" : algorithm) + "@" + Dates.now() + ".txt";
+		// String results = tempDirPath + filename;
+		String results = tempDirPath + "results.txt";
 		FileIO.copyFile("results.txt", results);
+		FileIO.copyFile("debug.log", tempDirPath + "debug.log");
 
 		// send notification
 		notifyMe(results);
@@ -858,8 +860,9 @@ public class LibRec {
 
 	protected void writeData(SparseMatrix trainMatrix, SparseMatrix testMatrix, int fold) {
 		if (outputOptions != null && outputOptions.contains("--fold-data")) {
-
-			String prefix = rateDao.getDataDirectory() + rateDao.getDataName();
+			
+			//String prefix = rateDao.getDataDirectory() + rateDao.getDataName();
+			String prefix = tempDirPath + rateDao.getDataName();
 			String suffix = ((fold >= 0) ? "-" + fold : "") + ".txt";
 
 			try {
