@@ -18,6 +18,12 @@
 
 package librec.intf;
 
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
+
+import com.google.common.collect.BiMap;
+
 import librec.data.Configuration;
 import librec.data.DenseMatrix;
 import librec.data.DenseVector;
@@ -242,6 +248,18 @@ public abstract class IterativeRecommender extends Recommender {
 
 	}
 
+	private void dumpFactors(DenseMatrix M, BiMap<Integer, String> biMap, String filename) throws IOException {
+		PrintWriter out = new PrintWriter(new FileWriter(filename));
+		for (int i = 0; i < M.numRows(); i++) {
+			out.print(biMap.get(i));
+			for (int j = 0; j < M.numColumns(); j++) {
+				out.print("\t" + M.get(i,j));
+			}
+			out.println();
+		}
+		out.close();
+	}
+
 	protected void saveModel() throws Exception {
 		// make a folder
 		String dirPath = FileIO.makeDirectory(tempDirPath, algoName);
@@ -257,14 +275,20 @@ public abstract class IterativeRecommender extends Recommender {
 		FileIO.serialize(P, dirPath + "userFactors" + suffix);
 		FileIO.serialize(Q, dirPath + "itemFactors" + suffix);
 
+		// write matrices P, Q in text form
+		dumpFactors(P, rateDao.getUserIds().inverse(), dirPath + "userFactors" + foldInfo + ".txt");
+		dumpFactors(Q, rateDao.getItemIds().inverse(), dirPath + "itemFactors" + foldInfo + ".txt");
+
 		// write vectors
 		if (userBias != null)
 			FileIO.serialize(userBias, dirPath + "userBiases" + suffix);
 		if (itemBias != null)
 			FileIO.serialize(itemBias, dirPath + "itemBiases" + suffix);
 
+		
 		Logs.debug("Learned models are saved to folder \"{}\"", dirPath);
 	}
+
 
 	protected void loadModel() throws Exception {
 		// make a folder
