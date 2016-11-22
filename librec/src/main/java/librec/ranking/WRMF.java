@@ -34,7 +34,10 @@ public class WRMF extends IterativeRecommender {
 		super(trainMatrix, testMatrix, fold);
 
 		isRankingPred = true; // item recommendation
-
+		
+		// no need to update learning rate
+		lRate = -1;
+		
 		alpha = algoOptions.getFloat("-alpha");
 		// checkBinary();
 	}
