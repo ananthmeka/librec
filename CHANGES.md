@@ -1,5 +1,9 @@
 ## The Changes of the LibRec Library
 
+# CUSTOM CHANGES 
+  * Added iteration level Metrics computation in WRMF 
+  * Modified the logging messages frequency from 100 to 10000 , during evaluation 
+  
 **Remarks:** If you'd like to make contributes to LibRec, please contact me without any hesitations.  
 
 ## Todo list
