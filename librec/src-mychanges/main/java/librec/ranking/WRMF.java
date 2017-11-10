@@ -2,14 +2,12 @@ package librec.ranking;
 
 import librec.data.*;
 import librec.intf.IterativeRecommender;
-import librec.metric.ITimeMetric;
 import librec.util.Logs;
 import librec.util.Strings;
 
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 /**
  * <h3>WRMF: Weighted Regularized Matrix Factorization.</h3>
@@ -79,51 +77,17 @@ public class WRMF extends IterativeRecommender {
 			itemUserList.add(trainMatrix.getRows(i));
 		}
 	}
-	public void printIterationMetrics() throws Exception {
-    	Logs.debug ("ANANTH DEBUG : NEW METRCIS FOR ITERATION : BEGIN  ") ;
-		measures.init(this);
-		// evaluation
-		if (verbose)
-			Logs.debug("{}{} evaluate test data ... ", algoName, foldInfo);
-		// TODO: to predict ratings only, or do item recommendations only
-        if (measures.hasRankingMetrics() && (measures.hasRatingMetrics())) {
-        	//Logs.debug ("ANANTH DEBUG : LOOP ! ") ;
-            evalRankings();
-            evalRatings();
-        } else if (measures.hasRatingMetrics()) {
-        	//Logs.debug ("ANANTH DEBUG : LOOP 2 ") ;
-            evalRatings();
-        } else if (measures.hasRankingMetrics()) {
-        	//Logs.debug ("ANANTH DEBUG : LOOP 3 ") ;
-            evalRankings();
-        } else {
-        	//Logs.debug ("ANANTH DEBUG : LOOP 4 ") ;
-            Logs.debug("No metrics found.");
-        }
-        
-		String measurements = measures.getEvalResultString();
 
-        // added metric names
-        String evalInfo = "Metrics: " + measures.getMetricNamesString() + "\n";
-        evalInfo += algoName + foldInfo + ": " + measurements ;
-
-		if (!isRankingPred)
-			evalInfo += "\tView: " + view;
-
-		//if (fold > 0)
-			Logs.debug(evalInfo);
-	    	Logs.debug ("ANANTH DEBUG : NEW METRCIS FOR ITERATION : END  ") ;
-	}
-	
-	@Override
-	protected void buildModel() throws Exception {
+	//@Override
+	// protected void buildModel() throws Exception {
+	protected void buildModelORG() throws Exception {
 		// To be consistent with the symbols in the paper
 		DenseMatrix X = P, Y = Q;
 		SparseMatrix IuMatrix = DiagMatrix.eye(numFactors).scale(regU);
 		SparseMatrix IiMatrix = DiagMatrix.eye(numFactors).scale(regI);
+		
 		for (int iter = 1; iter <= numIters; iter++) {
-
-			Logs.debug("ANANTH : DEBUG - ITERATION NUMBER {} ", iter ) ;
+		//for (int iter = 1; iter <= 1; iter++) {
 			// Step 1: update user factors;
 			DenseMatrix Yt = Y.transpose();
 			DenseMatrix YtY = Yt.mult(Y);
@@ -211,8 +175,115 @@ public class WRMF extends IterativeRecommender {
 				// udpate item factors
 				Y.setRow(i, yi);
 			}
-			printIterationMetrics() ;
 		}
+	}
+	private void printMetrics() throws Exception {
+		Logs.debug("ANANTH : WRMF.java () printMetrics -- BEGIN ");
+		printIterativeMetrics();
+		Logs.debug("ANANTH : WRMF.java () printMetrics -- END ");
+	}
+	
+	@Override
+	protected void buildModel() throws Exception {
+		// To be consistent with the symbols in the paper
+		DenseMatrix X = P, Y = Q;
+		SparseMatrix IuMatrix = DiagMatrix.eye(numFactors).scale(regU);
+		SparseMatrix IiMatrix = DiagMatrix.eye(numFactors).scale(regI);
+		
+		for (int iter = 1; iter <= numIters; iter++) {
+	    // for (int iter = 1; iter <= 1; iter++) {
+			// Step 1: update user factors;
+			DenseMatrix Yt = Y.transpose();
+			DenseMatrix YtY = Yt.mult(Y);
+			for (int u = 0; u < numUsers; u++) {
+				if (verbose && (u + 1) % numUsers == 0)
+					Logs.debug("{}{} runs at iteration = {}, user = {}/{} {}", algoName, foldInfo, iter, u + 1,
+							numUsers, new Date());
+
+				DenseMatrix YtCuI = new DenseMatrix(numFactors, numItems);
+				for (int i : userItemList.get(u)) {
+					for (int k = 0; k < numFactors; k++) {
+						YtCuI.set(k, i, Y.get(i, k) * CuiI.get(u, i));
+					}
+				}
+
+				// YtY + Yt * (Cu - I) * Y
+				DenseMatrix YtCuY = new DenseMatrix(numFactors, numFactors);
+				for (int k = 0; k < numFactors; k++) {
+					for (int f = 0; f < numFactors; f++) {
+						double value = 0.0;
+						for (int i : userItemList.get(u)) {
+							value += YtCuI.get(k, i) * Y.get(i, f);
+						}
+						YtCuY.set(k, f, value);
+					}
+				}
+				YtCuY = YtCuY.add(YtY);
+				// (YtCuY + lambda * I)^-1
+				// lambda * I can be pre-difined because every time is the same.
+				DenseMatrix Wu = (YtCuY.add(IuMatrix)).inv();
+				// Yt * (Cu - I) * Pu + Yt * Pu
+				DenseVector YtCuPu = new DenseVector(numFactors);
+				for (int f = 0; f < numFactors; f++) {
+					for (int i : userItemList.get(u)) {
+						YtCuPu.add(f, Pui.get(u, i) * (YtCuI.get(f, i) + Yt.get(f, i)));
+					}
+				}
+
+				DenseVector xu = Wu.mult(YtCuPu);
+				// udpate user factors
+				X.setRow(u, xu);
+			}
+
+			// Step 2: update item factors;
+			DenseMatrix Xt = X.transpose();
+			DenseMatrix XtX = Xt.mult(X);
+			for (int i = 0; i < numItems; i++) {
+				if (verbose && (i + 1) % numItems == 0)
+					Logs.debug("{}{} runs at iteration = {}, item = {}/{} {}", algoName, foldInfo, iter, i + 1,
+							numItems, new Date());
+
+				DenseMatrix XtCiI = new DenseMatrix(numFactors, numUsers);
+				// actually XtCiI is a sparse matrix
+				// Xt * (Ci-I)
+				for (int u : itemUserList.get(i)) {
+					for (int k = 0; k < numFactors; k++) {
+						XtCiI.set(k, u, X.get(u, k) * CuiI.get(u, i));
+					}
+				}
+				// XtX + Xt * (Ci - I) * X
+				DenseMatrix XtCiX = new DenseMatrix(numFactors, numFactors);
+				for (int k = 0; k < numFactors; k++) {
+					for (int f = 0; f < numFactors; f++) {
+						double value = 0.0;
+						for (int u : itemUserList.get(i)) {
+							value += XtCiI.get(k, u) * X.get(u, f);
+						}
+						XtCiX.set(k, f, value);
+					}
+				}
+				XtCiX = XtCiX.add(XtX);
+
+				// (XtCuX + lambda * I)^-1
+				// lambda * I can be pre-difined because every time is the same.
+				DenseMatrix Wi = (XtCiX.add(IiMatrix)).inv();
+				// Xt * (Ci - I) * Pu + Xt * Pu
+				DenseVector XtCiPu = new DenseVector(numFactors);
+				for (int f = 0; f < numFactors; f++) {
+					for (int u : itemUserList.get(i)) {
+						XtCiPu.add(f, Pui.get(u, i) * (XtCiI.get(f, u) + Xt.get(f, u)));
+					}
+				}
+
+				DenseVector yi = Wi.mult(XtCiPu);
+				// udpate item factors
+				Y.setRow(i, yi);
+			}
+			
+			printMetrics() ;
+
+		}
+
 	}
 
 	@Override

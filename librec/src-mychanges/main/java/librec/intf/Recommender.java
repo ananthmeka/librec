@@ -202,6 +202,8 @@ public abstract class Recommender implements Runnable {
 	 */
 	public Recommender(SparseMatrix trainMatrix, SparseMatrix testMatrix, int fold) {
 
+		 Logs.debug("Recommender Constructor with fold : {} " + fold);
+		 
 		// config recommender
 		if (cf == null || rateMatrix == null) {
 			Logs.error("Recommender is not well configed");
@@ -356,6 +358,132 @@ public abstract class Recommender implements Runnable {
 	 * execution method of a recommender
 	 * 
 	 */
+	public void executeORG() throws Exception {
+
+		Stopwatch sw = Stopwatch.createStarted();
+		if (Debug.ON) {
+			// learn a recommender model
+			initModel();
+
+			// show algorithm's configuration
+			printAlgoConfig();
+			
+			// build the model
+			buildModel();
+			
+			// post-processing after building a model, e.g., release intermediate memory to avoid memory leak
+			postModel();
+		} else {
+			/**
+			 * load a learned model: this code will not be executed unless "Debug.OFF" mainly for the purpose of
+			 * exemplifying how to use the saved models
+			 */
+			loadModel();
+		}
+		long trainTime = sw.elapsed(TimeUnit.MILLISECONDS);
+
+		// validation
+		if (validationRatio > 0 && validationRatio < 1) {
+			validateModel();
+
+			trainTime = sw.elapsed(TimeUnit.MILLISECONDS);
+		}
+
+
+		measures.init(this);
+		// evaluation
+		if (verbose)
+			Logs.debug("{}{} evaluate test data ... ", algoName, foldInfo);
+		// TODO: to predict ratings only, or do item recommendations only
+        if (measures.hasRankingMetrics() && (measures.hasRatingMetrics())) {
+            evalRankings();
+            evalRatings();
+        } else if (measures.hasRatingMetrics()) {
+            evalRatings();
+        } else if (measures.hasRankingMetrics()) {
+            evalRankings();
+        } else {
+            Logs.debug("No metrics found.");
+        }
+		String measurements = measures.getEvalResultString();
+		sw.stop();
+		long testTime = sw.elapsed(TimeUnit.MILLISECONDS) - trainTime;
+
+		// collecting results
+        ITimeMetric trainTimeMetric = measures.getTimeMetric("TrainTime");
+        ITimeMetric testTimeMetric = measures.getTimeMetric("TestTime");
+
+        trainTimeMetric.setTime(trainTime);
+        testTimeMetric.setTime(testTime);
+        // added metric names
+        String evalInfo = "Metrics: " + measures.getMetricNamesString() + "\n";
+        evalInfo += algoName + foldInfo + ": " + measurements + "\tTime: "
+                + trainTimeMetric.getValueAsString() + ", "
+                + testTimeMetric.getValueAsString();
+
+		if (!isRankingPred)
+			evalInfo += "\tView: " + view;
+
+	    Logs.debug("ANANTH 1: {} " + evalInfo);
+		
+	    if (fold > 0)
+			Logs.debug(evalInfo);
+	    
+		Logs.debug("ANANTH 2: {} " + evalInfo);
+	    
+		if (isSaveModel)
+			saveModel();
+		
+		Logs.debug("ANANTH 3: {} " + evalInfo);
+		printAlgoConfig(); 
+		Logs.debug("ANANTH 4: After printAlgoConfig() ");
+
+	}
+	
+	public void printIterativeMetrics() throws Exception {
+
+		measures.init(this);
+		// evaluation
+		if (verbose)
+			Logs.debug("{}{} evaluate test data ... ", algoName, foldInfo);
+		// TODO: to predict ratings only, or do item recommendations only
+        if (measures.hasRankingMetrics() && (measures.hasRatingMetrics())) {
+            evalRankings();
+            evalRatings();
+        } else if (measures.hasRatingMetrics()) {
+            evalRatings();
+        } else if (measures.hasRankingMetrics()) {
+            evalRankings();
+        } else {
+            Logs.debug("No metrics found.");
+        }
+		String measurements = measures.getEvalResultString();
+		
+		// long testTime = sw.elapsed(TimeUnit.MILLISECONDS) - trainTime;
+
+		// collecting results
+        // ITimeMetric trainTimeMetric = measures.getTimeMetric("TrainTime");
+        // ITimeMetric testTimeMetric = measures.getTimeMetric("TestTime");
+
+        // trainTimeMetric.setTime(trainTime);
+        // testTimeMetric.setTime(testTime);
+        // added metric names
+        String evalInfo = "Metrics: " + measures.getMetricNamesString() + "\n";
+        // evalInfo += algoName + foldInfo + ": " + measurements + "\tTime: "
+        //        + trainTimeMetric.getValueAsString() + ", "
+        //        + testTimeMetric.getValueAsString();
+
+        evalInfo += algoName + foldInfo + ": " + measurements + "\n"  ;
+
+		if (!isRankingPred)
+			evalInfo += "\tView: " + view;
+
+		// if (fold > 0)
+			Logs.debug(evalInfo);
+		
+		
+	}
+	
 	public void execute() throws Exception {
 
 		Stopwatch sw = Stopwatch.createStarted();
@@ -365,10 +493,10 @@ public abstract class Recommender implements Runnable {
 
 			// show algorithm's configuration
 			printAlgoConfig();
-
+			
 			// build the model
-			buildModel();
-
+			buildModel() ;
+			
 			// post-processing after building a model, e.g., release intermediate memory to avoid memory leak
 			postModel();
 		} else {
@@ -428,7 +556,7 @@ public abstract class Recommender implements Runnable {
 		if (isSaveModel)
 			saveModel();
 	}
-
+	
 	private void printAlgoConfig() {
 		String algoInfo = toString();
 
@@ -720,12 +848,10 @@ public abstract class Recommender implements Runnable {
         int numCount = 0;
 		for (int u = 0, um = testMatrix.numRows(); u < um; u++) {
 
-
-			//if (verbose && ((u + 1) % 100 == 0))
-			if (verbose && ((u + 1) % 10000 == 0))
+			// TODO uncomment the following 2 lines - Ananth
+			if (verbose && ((u + 1) % 100 == 0))
 				Logs.debug("{}{} evaluates progress: {} / {}", algoName, foldInfo, u + 1, um);
-				
-			
+
 			// number of candidate items for all users
 			int numCands = candItems.size();
 
