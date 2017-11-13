@@ -53,7 +53,12 @@ public abstract class IterativeRecommender extends Recommender {
 	protected static int numFactors;
 	// number of iterations
 	protected static int numIters;
-
+	
+	// ANANTH BEGIN - CUSTOM NEED FOR METRICS 
+	// number of iterations needed to generate the Metrics for iteration level
+	protected static int numItersPerMetrics;
+	// ANANTH END - CUSTOM NEED FOR METRICS 
+	
 	// whether to adjust learning rate automatically
 	protected static boolean isBoldDriver;
 	// decay of learning rate
@@ -110,6 +115,9 @@ public abstract class IterativeRecommender extends Recommender {
 
 			numFactors = cf.getInt("num.factors", 10);
 			numIters = cf.getInt("num.max.iter", 100);
+			// ANANTH BEGIN - CUSTOM NEED FOR METRICS 
+			numItersPerMetrics = cf.getInt("num.iter.for.metrics", 10);
+			// ANANTH END - CUSTOM NEED FOR METRICS 
 		}
 
 		// method-specific settings
