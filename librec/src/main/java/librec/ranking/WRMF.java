@@ -211,7 +211,11 @@ public class WRMF extends IterativeRecommender {
 				// udpate item factors
 				Y.setRow(i, yi);
 			}
-			printIterationMetrics() ;
+			// ANANTH - CUSTOM CHANGE - BEGIN 
+			Logs.debug("ANANTH DEBUG : iteration = {}, iterForMetrics = {}", iter, numItersPerMetrics);
+			if ( iter % numItersPerMetrics == 0 )  
+				printIterationMetrics() ;
+			// ANANTH - CUSTOM CHANGE - END 
 		}
 	}
 
