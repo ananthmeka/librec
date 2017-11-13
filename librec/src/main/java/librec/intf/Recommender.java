@@ -720,11 +720,11 @@ public abstract class Recommender implements Runnable {
         int numCount = 0;
 		for (int u = 0, um = testMatrix.numRows(); u < um; u++) {
 
-
+			// ANANTH - CUSTOM CHANGE - BEGIN 
 			//if (verbose && ((u + 1) % 100 == 0))
 			if (verbose && ((u + 1) % 10000 == 0))
 				Logs.debug("{}{} evaluates progress: {} / {}", algoName, foldInfo, u + 1, um);
-				
+			// ANANTH - CUSTOM CHANGE - END 
 			
 			// number of candidate items for all users
 			int numCands = candItems.size();
